@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>中枢神经切面分离 · 交互式教学系统</title>
+<style>
+  :root{
+    --bg:#F7F7F5; --panel:#FFFFFF; --line:#E3E1DB; --line2:#D6D3CB;
+    --txt:#2C2C2A; --txt2:#5F5E5A; --txt3:#8A8880;
+    --accent:#185FA5; --accent-soft:#E6F1FB;
+    --flag:#FF6B35;
+    --shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+       background:var(--bg);color:var(--txt);font-size:13px;line-height:1.6;
+       height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  header{height:46px;flex:0 0 46px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;padding:0 14px;gap:10px;z-index:10}
+  header h1{font-size:14px;font-weight:600;letter-spacing:.2px}
+  header .sub{font-size:11px;color:var(--txt3)}
+  .spacer{flex:1}
+  .seg{display:flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .seg button{border:0;background:var(--panel);padding:5px 12px;font-size:12px;
+              color:var(--txt2);cursor:pointer;font-family:inherit}
+  .seg button.on{background:var(--accent);color:#fff}
+  .seg button:hover:not(.on){background:var(--accent-soft)}
+  .btn{border:1px solid var(--line2);background:var(--panel);border-radius:6px;
+       padding:5px 12px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit}
+  .btn:hover{background:var(--accent-soft)}
+  .btn.hot{border-color:var(--flag);color:var(--flag)}
+  .btn.hot:hover{background:#FFF1EA}
+
+  /* 顶部建模目录 */
+  nav{display:flex;gap:6px;align-items:center}
+  nav .mbtn{border:1px solid var(--line2);background:var(--panel);border-radius:6px;
+            padding:5px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;color:var(--txt2);
+            display:flex;gap:7px;align-items:center}
+  nav .mbtn b{font-weight:600;color:var(--txt)}
+  nav .mbtn:hover{background:var(--accent-soft)}
+  nav .mbtn.on{border-color:var(--accent);background:var(--accent);color:#fff}
+  nav .mbtn.on b,nav .mbtn.on span{color:#fff}
+  select.btn{font-family:inherit;max-width:190px}
+
+  #body{flex:1;display:flex;min-height:0}
+  aside{background:var(--panel);width:232px;flex:0 0 232px;overflow-y:auto;
+        border-right:1px solid var(--line);padding:12px}
+  aside#right{width:322px;flex:0 0 322px;border-right:0;border-left:1px solid var(--line)}
+  #view{flex:1;position:relative;min-width:0;background:var(--bg)}
+  #view canvas{display:block}
+  .sec{margin-bottom:15px}
+  .sec>h3{font-size:11px;font-weight:600;color:var(--txt3);letter-spacing:.6px;margin-bottom:7px}
+  /* 左栏分组标题：把一堆小卡片按「装配 / 显示 / 模型专属」归拢，避免杂乱 */
+  .grp{display:flex;align-items:center;gap:7px;margin:2px 0 11px;
+       font-size:11.5px;font-weight:700;color:var(--accent);letter-spacing:.4px}
+  .grp::after{content:"";flex:1;height:1px;background:var(--line2)}
+  .grp:not(:first-child){margin-top:16px}
+  /* 类别表里再按「灰质 / 白质 / 其他」插一条小分隔 */
+  .kgrp{font-size:10.5px;color:var(--txt3);margin:9px 0 3px;padding-top:7px;
+        border-top:1px dashed var(--line2);letter-spacing:.5px}
+  .kgrp:first-child{border-top:0;padding-top:0;margin-top:2px}
+  .row{display:flex;align-items:center;gap:6px;padding:2px 0}
+  .row label{display:flex;align-items:center;gap:6px;cursor:pointer;flex:1;min-width:0}
+  .row .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sw{width:10px;height:10px;border-radius:2px;flex:0 0 10px;display:inline-block}
+  .small{font-size:11px;color:var(--txt3)}
+  .chk{accent-color:var(--accent)}
+  .softbtn{padding:1px 6px;font-size:10.5px;border-radius:5px;flex:0 0 auto}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+
+  .tabs{display:flex;border-bottom:1px solid var(--line);margin:-12px -12px 10px}
+  .tabs div{flex:1;text-align:center;padding:8px 0;font-size:12px;color:var(--txt3);cursor:pointer}
+  .tabs div.on{color:var(--accent);border-bottom:2px solid var(--accent);font-weight:600}
+
+  #info{padding:10px 12px;background:#FCFBF9;border:1px solid var(--line);border-radius:6px;
+        margin-bottom:10px}
+  #info h4{font-size:14px;font-weight:600;margin-bottom:4px}
+  #info .tagx{display:inline-block;font-size:11px;padding:1px 7px;border-radius:9px;
+              background:var(--accent-soft);color:var(--accent);margin-left:5px;vertical-align:1px}
+  #info p{font-size:12.5px;color:var(--txt2);margin-top:6px;line-height:1.75}
+  #info .meta{font-size:11px;color:var(--txt3);margin-top:8px;padding-top:7px;border-top:1px dashed var(--line2)}
+  #info .acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  #info .acts .btn{padding:4px 10px;font-size:11.5px}
+
+  .card{border:1px solid var(--line);border-radius:6px;padding:7px 9px;margin-bottom:6px;cursor:pointer}
+  .card:hover{background:#FCFBF9}
+  .card.on{border-color:var(--accent);background:var(--accent-soft)}
+  .card .t{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:5px}
+  .card .tag{font-size:10.5px;padding:0 6px;border-radius:8px;background:#EFEDE7;color:var(--txt3);font-weight:400}
+  .card .tag.hot{background:#FFE8DF;color:var(--flag)}
+  .card .d{font-size:11px;color:var(--txt3);margin-top:2px;overflow:hidden;
+           display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+
+  #load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+        flex-direction:column;gap:8px;color:var(--txt3);font-size:13px;text-align:center;padding:30px}
+  #label{position:absolute;background:rgba(28,28,26,.9);color:#fff;font-size:12px;
+         padding:3px 8px;border-radius:4px;pointer-events:none;display:none;white-space:nowrap;z-index:5}
+  #hud{position:absolute;left:12px;bottom:10px;font-size:11.5px;color:var(--txt3);
+       background:rgba(255,255,255,.78);padding:3px 9px;border-radius:4px}
+  /* 束流演示时贴在视图底部的「旁白」气泡 */
+  #narr{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+        max-width:min(660px,86%);background:rgba(24,28,34,.90);color:#F2F2EE;
+        border-radius:10px;padding:9px 14px;font-size:12.5px;line-height:1.65;
+        box-shadow:0 6px 20px rgba(0,0,0,.22);display:none;z-index:7;
+        backdrop-filter:blur(3px)}
+  #narr .nb{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:9px;
+        background:#2f6f8f;color:#fff;margin-right:6px;vertical-align:1px}
+  #narr .nb.gm{background:#8a7860}
+  #narr .nb.wm{background:#5d7f96}
+  #narr .nb.cross{background:#c0392b}
+  #narr .nb.gang{background:#1f8f52}
+  #narr .nb.branch{background:#7a4f9c}
+  #narr .nb.nuc{background:#c0562b}
+  #narr .nt{font-weight:600;color:#FFD479}
+  #narr .nd{color:#CFCFC8;font-size:11.5px}
+
+  /* 纤维束旁白里的「逐站走行」列表 */
+  #info .sub-h{font-size:11.5px;font-weight:600;color:var(--txt3);margin:9px 0 4px;
+               padding-top:7px;border-top:1px dashed var(--line2)}
+  #info .stps{max-height:230px;overflow-y:auto}
+  #info .stp{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:2.5px 0;
+             border-bottom:1px dotted #EFEDE7}
+  #info .stp b{flex:0 0 17px;height:17px;line-height:17px;text-align:center;font-size:10px;
+               border-radius:9px;background:#EFEDE7;color:var(--txt3);font-weight:600}
+  #info .stp .sl{flex:0 0 78px;color:var(--txt3);font-size:10.5px}
+  #info .stp .sn{flex:1;color:var(--txt)}
+  #info .stp .sx{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:8px;
+                 background:#FFE1DC;color:#C0392B}
+  #info .stp.x{background:#FFF7F5}
+  #info .stp.x b{background:#F7CFC7;color:#A93226}
+  #info .stp .sg{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:8px;
+                 background:#DFF3E6;color:#1F7A46}
+  #info .stp .sb{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:8px;
+                 background:#EFE3F7;color:#7A4F9C}
+  #info .stp.g{background:#F5FBF7}
+  #info .stp.g b{background:#CFEBDA;color:#1F7A46}
+  /* 顶部「视图」菜单：把拖拽/复原/重置收进来，顶部不再拥挤 */
+  .menu{position:relative}
+  .menu-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);
+            border:1px solid var(--line2);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.10);
+            padding:5px;display:none;flex-direction:column;gap:2px;min-width:190px;z-index:30}
+  .menu.open .menu-pop{display:flex}
+  .menu-pop button{border:0;background:transparent;text-align:left;padding:7px 10px;
+                   font-size:12px;color:var(--txt2);border-radius:5px;cursor:pointer;font-family:inherit}
+  .menu-pop button:hover{background:var(--accent-soft);color:var(--txt)}
+  .menu-pop button.on{color:var(--accent);font-weight:600}
+
+  /* 层面浏览卡片里的成员标签（点一下定位到该核团 / 神经节） */
+  #panelLevel .lvit{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;
+                    max-height:152px;overflow-y:auto;padding-right:2px}
+  #panelLevel .lvtag{font-size:10.5px;padding:1.5px 7px;border-radius:9px;background:#EFEDE7;
+                     color:var(--txt2);cursor:pointer;border:1px solid transparent;white-space:nowrap}
+  #panelLevel .lvtag:hover{background:var(--accent-soft);color:var(--accent);border-color:#BFD9F2}
+
+  #pickbar{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;z-index:6}
+  #pickbar .btn{background:rgba(255,255,255,.94)}
+
+  /* 「单独显示」模式提示条：只留被点的那条脑神经，其余结构半透明 */
+  #pickbar .isobar{display:flex;align-items:center;gap:8px;max-width:330px;
+                   background:rgba(255,255,255,.96);border:1px solid var(--accent);
+                   border-left:3px solid var(--accent);border-radius:6px;padding:6px 8px;
+                   box-shadow:0 2px 10px rgba(0,0,0,.10);font-size:12px}
+  #pickbar .isobar b{font-size:11px;color:var(--accent);flex:0 0 auto}
+  #pickbar .isobar span{flex:1;min-width:0;color:var(--txt2);overflow:hidden;
+                        text-overflow:ellipsis;white-space:nowrap}
+  #pickbar .isobar .btn{padding:3px 9px;font-size:11.5px;background:#fff}
+  #panelLevel .lvgrp{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+  #panelLevel .lvtag .cnt{opacity:.55;font-size:9.5px;margin-left:2px}
+
+  /* ---- 结构类型图例（左侧栏）---- */
+  #typeList .trow{display:flex;align-items:flex-start;gap:7px;padding:3px 0}
+  #typeList .tdot{width:10px;height:10px;border-radius:50%;flex:0 0 10px;margin-top:3px}
+  #typeList .tname{font-size:12px;color:var(--txt);font-weight:600}
+  #typeList .tnote{font-size:10.5px;color:var(--txt3);line-height:1.45}
+  #typeList .titems{font-size:10px;color:var(--txt3);margin-top:1px}
+
+  /* ---- 功能纤维分色 图例 ---- */
+  .flx{display:flex;flex-wrap:wrap;gap:4px 9px;margin:6px 0 2px}
+  .flx .fl{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--txt2)}
+  .flx .fl i{width:11px;height:4px;border-radius:2px;display:inline-block}
+  .subtitle{font-size:11.5px;font-weight:600;color:var(--txt2);margin:9px 0 3px;
+            padding-top:7px;border-top:1px dashed var(--line2)}
+  #panelTract > .subtitle:first-child{border-top:0;padding-top:0;margin-top:0}
+
+  #narr .nb.sens{background:#2E86DE}
+  #narr .nb.sec{background:#16A085}
+  #info .stp .ss{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:8px;
+                 background:#DCEBF7;color:#1B6CA8}
+  #info .stp .sn2{flex:0 0 auto;font-size:10px;padding:0 6px;border-radius:8px;
+                  background:#EFEDE7;color:var(--txt2)}
+
+  /* ---- 学习任务 ---- */
+  #panelTask h4{font-size:12.5px;font-weight:600;margin:10px 0 6px;
+                padding-top:8px;border-top:1px dashed var(--line2);color:var(--txt)}
+  #panelTask h4:first-child{border-top:0;padding-top:0;margin-top:0}
+  #panelTask .hint{font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.55}
+  #panelTask select{width:100%;margin-bottom:7px}
+  #panelTask .pool,#panelTask .ans{display:flex;flex-wrap:wrap;gap:5px;
+                min-height:30px;padding:6px;border-radius:6px;border:1px dashed var(--line2);
+                background:#FCFBF9}
+  #panelTask .ans{border-style:solid;border-color:#BFD9F2;background:#F4F9FE;margin-bottom:7px}
+  #panelTask .chip{font-size:11px;padding:3px 9px;border-radius:11px;cursor:pointer;
+                background:#EFEDE7;color:var(--txt);border:1px solid transparent}
+  #panelTask .chip:hover{border-color:var(--accent);color:var(--accent)}
+  #panelTask .chip.ok{background:#DFF3E6;color:#1F7A46;border-color:#9AD3B4}
+  #panelTask .chip.bad{background:#FFE1DC;color:#C0392B;border-color:#F3B7AD}
+  #panelTask .chip.idx::before{content:attr(data-i);font-weight:600;margin-right:5px;
+                color:var(--accent)}
+  #panelTask .bar{display:flex;gap:6px;margin:8px 0}
+  #panelTask .score{font-size:12px;font-weight:600;color:var(--accent);margin-top:7px}
+  #panelTask .lesion{border:1px solid var(--line);border-radius:6px;padding:6px 8px;
+                margin-bottom:5px;cursor:pointer}
+  #panelTask .lesion:hover{background:#FCFBF9}
+  #panelTask .lesion.on{border-color:var(--accent);background:var(--accent-soft)}
+  #panelTask .lesion .ln{font-size:12px;font-weight:600}
+  #panelTask .lesion .ld{font-size:10.5px;color:var(--txt3)}
+  #panelTask .sym{margin-top:7px;font-size:11.5px;line-height:1.65}
+  #panelTask .sym .k{display:inline-block;font-size:10px;padding:0 6px;border-radius:8px;
+                margin-right:5px;background:#EFEDE7;color:var(--txt2)}
+  #panelTask .sym .k.m{background:#FFE1DC;color:#C0392B}
+  #panelTask .sym .k.s{background:#DCEBF7;color:#1B6CA8}
+  #panelTask .sym .k.a{background:#FDF0D8;color:#B9791B}
+  #panelTask .sym .k.c{background:#EFE3F7;color:#7A4F9C}
+
+  .tabs div{font-size:11.5px}
+
+  footer{flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+         display:flex;align-items:center;gap:10px;padding:7px 14px}
+  footer .lbl{font-size:12px;color:var(--txt2)}
+  footer input[type=range]{flex:1}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>中枢神经切面分离 · 交互式教学系统</h1>
+  <span class="sub" id="hdrSub"></span>
+  <div class="spacer"></div>
+  <select id="selModel" class="btn" title="选择建模"></select>
+  <select id="selTract" class="btn" title="单束模型：每对纤维束一个独立模型"></select>
+  <div class="seg">
+    <button id="mWhole" class="on">装配</button>
+    <button id="mSplit">切面分离</button>
+  </div>
+  <div class="menu" id="menuView">
+    <button class="btn" id="bViewMenu">视图 ▾</button>
+    <div class="menu-pop">
+      <button id="bDrag">拖拽分离（默认拖单个结构；按住 Shift 拖整层）</button>
+      <button id="bResetAll">复原（隐藏 / 透明一并恢复实体）</button>
+      <button id="bCam">重置视角</button>
+    </div>
+  </div>
+</header>
+
+<div id="body">
+  <aside id="left">
+    <!-- ───────────── 装配与视角（切面类模型通用） ───────────── -->
+    <div class="grp" data-m="A,B,S">装配与视角</div>
+    <div class="sec" data-m="A,B,S">
+      <h3>拆解间距</h3>
+      <input type="range" id="sGap" min="0" max="150" value="0">
+      <div class="small" id="gapVal">0.00（装配状态）</div>
+    </div>
+    <div class="sec" data-m="A,B,S">
+      <h3>视角 / 复原</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" id="bCam2">重置视角</button>
+        <button class="btn" id="bResetAll2">复原</button>
+        <button class="btn" id="bDrag2">拖拽分离</button>
+      </div>
+      <div class="small" style="margin-top:5px">拖拽分离：默认拖单个结构；按住 Shift 拖整层</div>
+    </div>
+
+    <!-- ───────────── 灰白质规整（一眼分清灰质 / 白质） ───────────── -->
+    <div class="grp" data-m="A,B,S">灰质 / 白质</div>
+    <div class="sec" data-m="A,B,S">
+      <h3>按组织显示</h3>
+      <div id="tissueList"></div>
+      <button class="btn" id="bTissue3D" style="width:100%;margin-top:6px">按组织着色（灰质 / 白质）</button>
+    </div>
+    <div class="sec" data-m="A,B,S">
+      <h3>一键区分</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" id="bOnlyGrey">只看灰质核团</button>
+        <button class="btn" id="bOnlyWhite">只看白质纤维束</button>
+        <button class="btn" id="bNoRt">隐藏网状结构</button>
+        <button class="btn" id="bAllOn">全部显示</button>
+      </div>
+      <div class="small" style="margin-top:5px">
+        网状结构是脑干内弥散灰质，切面上数量最多、最易显得杂乱，可一键隐藏。</div>
+    </div>
+
+    <!-- ───────────── 分类筛选 ───────────── -->
+    <div class="grp" data-m="A,B,C,D,S">分类筛选</div>
+    <div class="sec" data-m="A,B,C,D,S">
+      <h3>按部位显示</h3>
+      <div id="segList"></div>
+    </div>
+    <div class="sec" data-m="A,B,C,D,S">
+      <h3>按类别显示</h3>
+      <div id="kindList"></div>
+    </div>
+    <div class="sec" data-m="A,B,S">
+      <h3>显示范围</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn" id="bHideShell">隐藏外壳</button>
+        <button class="btn" id="bOnlyTract">只看传导束</button>
+      </div>
+    </div>
+
+    <!-- ───────────── 模型 A 专属：整体装配 ───────────── -->
+    <div class="grp" data-m="A">整体装配模型</div>
+    <div class="sec" data-m="A">
+      <h3>外脑壳（一键透明 / 实体）</h3>
+      <button class="btn" id="bShellSolid" style="width:100%">外脑壳：透明</button>
+      <div class="small" style="margin-top:5px">一键在「半透明」与「实体（不透明）」之间切换</div>
+    </div>
+    <div class="sec" data-m="A">
+      <h3>仿真外壳 · 不透明度</h3>
+      <input type="range" id="sOpa" min="0" max="100" value="24">
+      <div class="small" id="opaVal">0.24</div>
+    </div>
+
+    <!-- ───────────── 脑神经 / 反射弧模型专属 ───────────── -->
+    <div class="grp" data-m="C,D">脑神经 / 反射弧专属</div>
+    <div class="sec" data-m="C,D">
+      <h3>结构类型（严格区分）</h3>
+      <div id="typeList"></div>
+    </div>
+  </aside>
+
+  <div id="view">
+    <div id="load">正在载入…</div>
+    <div id="label"></div>
+    <div id="hud"></div>
+    <div id="narr"></div>
+    <div id="pickbar"></div>
+  </div>
+
+  <aside id="right">
+    <div class="tabs">
+      <div id="tabInfo" class="on">结构旁白</div>
+      <div id="tabLevel">层面浏览</div>
+      <div id="tabTract">通路追踪</div>
+      <div id="tabTask">学习任务</div>
+    </div>
+    <div id="info"></div>
+    <div id="panelLevel" style="display:none"></div>
+    <div id="panelTract" style="display:none"></div>
+    <div id="panelTask" style="display:none"></div>
+  </aside>
+</div>
+
+<footer>
+  <span class="lbl" id="tlLabel">束流演示</span>
+  <button class="btn" id="bPlay">播放</button>
+  <input type="range" id="tl" min="0" max="1000" value="0">
+  <span class="lbl small" id="tlInfo">在「通路追踪」中选择一条通路后播放</span>
+</footer>
+
+<script>
+/* ── 离线打开支持（双击 index.html 即可，无需本地服务器）──────────────
+   浏览器出于安全禁止 file:// 页面用 fetch/XHR 读取本地文件，但允许
+   用 <script src> 加载同目录下的本地 JS。因此把 data.json 与所有
+   *.glb 以 base64 形式预存在 assets/*.b64.js；这里劫持 window.fetch，
+   按需注入对应脚本并把 base64 还原为 Response。
+   http(s) 环境下本段直接跳过，行为与原来完全一致。 */
+(function () {
+  if (location.protocol !== 'file:') return;
+  var REAL = window.fetch ? window.fetch.bind(window) : null;
+  var pending = {};
+  var BASE = location.href.replace(/[^/]*$/, '');   // 页面所在目录
+  function key(u) {
+    // three.js 传进来的是 Request 对象，input.url 为绝对路径；
+    // 先去掉 ?query/#hash 与页面目录前缀，还原成 "modelA.glb" / "derived/t01.glb"
+    var s = decodeURI(String(u).split('?')[0].split('#')[0]);
+    if (s.indexOf(BASE) === 0) s = s.slice(BASE.length);
+    return s.replace(/^\.\//, '');
+  }
+  function srcOf(k) { return 'assets/' + k.replace(/\//g, '__') + '.b64.js'; }
+  function mime(k) {
+    if (/\.json$/.test(k)) return 'application/json';
+    if (/\.glb$/.test(k)) return 'model/gltf-binary';
+    return 'application/octet-stream';
+  }
+  function decode(b64) {
+    var bin = atob(b64), n = bin.length, u8 = new Uint8Array(n);
+    for (var i = 0; i < n; i++) u8[i] = bin.charCodeAt(i);
+    return u8.buffer;
+  }
+  function get(k) {
+    if (!pending[k]) pending[k] = new Promise(function (res, rej) {
+      if (window.__WB_ASSETS && window.__WB_ASSETS[k]) { res(); return; }
+      var s = document.createElement('script');
+      s.src = srcOf(k);
+      s.onload = res;
+      s.onerror = function () { rej(new Error('无法加载离线资源: ' + k)); };
+      document.head.appendChild(s);
+    }).then(function () {
+      if (!(window.__WB_ASSETS && window.__WB_ASSETS[k])) throw new Error('离线资源缺失: ' + k);
+      return window.__WB_ASSETS[k];
+    });
+    return pending[k];
+  }
+  window.fetch = function (input, init) {
+    var url = (typeof input === 'string') ? input : (input && input.url) || '';
+    if (/^(https?:|data:|blob:)/i.test(url)) return REAL(input, init);
+    var k = key(url);
+    return get(k).then(function (b64) {
+      var buf = decode(b64);
+      return new Response(buf, {
+        status: 200, statusText: 'OK',
+        headers: { 'Content-Type': mime(k), 'Content-Length': String(buf.byteLength) }
+      });
+    });
+  };
+})();
+</script>
+<script src="vendor.js"></script>
+<script src="app.js?v=18"></script>
+</body>
+</html>
